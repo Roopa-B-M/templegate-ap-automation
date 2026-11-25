@@ -1,0 +1,56 @@
+# TempleGate AP Automation - full local stack (optional).
+#   docker compose up --build
+#   frontend http://localhost:5173  ·  backend http://localhost:8000
+# The backend container applies migrations automatically (and seeds demo data
+# on first run when SEED_DEMO=true).
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: templegate_ap
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d templegate_ap"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      DEBUG: "True"
+      SECRET_KEY: docker-compose-dev-key-change-me
+      ALLOWED_HOSTS: localhost,127.0.0.1,backend
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_NAME: templegate_ap
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      TESSERACT_CMD: /usr/bin/tesseract
+      SCHEDULER_ENABLED: "True"
+      SEED_DEMO: "true"
+    volumes:
+      - media_data:/app/media
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    depends_on:
+      - backend
+    ports:
+      - "5173:5173"
+
+volumes:
+  pgdata:
+  media_data:
